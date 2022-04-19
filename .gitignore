@@ -1,5 +1,8 @@
+.vscode
+
 # tests are maintanied in the l-lang-spec repo, so excluded here
-tests/
+tests
+
 
 
 # Byte-compiled / optimized / DLL files
