@@ -1,4 +1,3 @@
-from asyncio.windows_events import NULL
 import logging
 import re
 from sly import Lexer, Parser
@@ -17,7 +16,7 @@ def logged(func):
     def wrapper(*args, **kwargs):
         try:
             logging.debug("Function '{0}', parameters : {1} and {2}".
-                         format(func.__name__, args, kwargs))
+                          format(func.__name__, args, kwargs))
             return func(*args, **kwargs)
         except Exception as e:
             logging.exception(e)
@@ -25,7 +24,7 @@ def logged(func):
 
 
 class Token:
-    def __init__(self, token):
+    def __init__(self, token: str):
         self.token = token
         self.values = []
 
@@ -42,7 +41,7 @@ class Token:
                 v = f"{v}.dat"
             self.values.append(v)
 
-    def remove(self, value):
+    def remove(self, value: str):
         self.values.remove(value)
 
     def sort(self):
@@ -56,7 +55,7 @@ class Token:
 
 
 @logged
-def load_tokens(token_file):
+def load_tokens(token_file: str):
     with open(token_file, 'r', encoding='UTF-8') as file:
         yaml_tokens = yaml.safe_load(file)
     for token_type in tokens:
@@ -72,9 +71,9 @@ def load_tokens(token_file):
 
 
 class LDRLexer(Lexer):
-    tokens = { ID, PRINT, PRINTLOC, ASSIGN, NUMBER, STRING, BLOCK }
+    tokens = { ID, PRINT, PRINTLOC, ASSIGN, NUMBER, STRING, BLOCK }  # noqa
 
-    #Ignored characters between tokens (just whitespace for us)
+    # Ignored characters between tokens (just whitespace for us)
     ignore = " \t"
 
     # Define a rule so we can track line numbers
@@ -89,12 +88,12 @@ class LDRLexer(Lexer):
     ID = "x"
 
     @_(r"\d+")
-    def NUMBER(self, t):
+    def NUMBER(self, t):  # noqa ('NUMBER' should be lowercase)
         t.value = int(t.value)
         return t
 
     @_(r'''("[^"\\]*(\\.[^"\\]*)*"|'[^'\\]*(\\.[^'\\]*)*')''')
-    def STRING(self, t):
+    def STRING(self, t):  # noqa ('STRING' should be lowercase)
         t.value = self.remove_quotes(t.value)
         return t
 
@@ -142,7 +141,7 @@ class LDRParser(Parser):
         print("0 // This output was generated using the L language, using a")
         print("0 // LEGO CAD file (ldr file) input to compile into these results.")
         self.header_printed = True
-        
+
     def wrapup(self):
         print("0 STEP")
 
@@ -154,7 +153,6 @@ class LDRParser(Parser):
     def lprint_pos(self, block, x, y, z, color=15):
         self.print_header()
         print(f"1 {color} {x} {y} {z} 1 0 0 0 1 0 0 0 1 {block}")
-        
 
     @_('ID ASSIGN expr')
     def statement(self, p):
@@ -162,20 +160,20 @@ class LDRParser(Parser):
         self.names[p.ID] = p.expr
 
     @_('expr')
-    def statement(self, p):
+    def statement(self, p):  # noqa ('statement' redefined function)
         logging.debug(f"expr ({p.expr})")
         return p.expr
-    
+
     @_('NUMBER')
     def expr(self, p):
         return p.NUMBER
 
     @_('STRING')
-    def expr(self, p):
+    def expr(self, p):  # noqa ('expr' redefined function)
         return p.STRING
 
     @_('ID')
-    def expr(self, p):
+    def expr(self, p):  # noqa ('expr' redefined function)
         logging.debug(f"ID ({p.ID})")
         try:
             return self.names[p.ID]
@@ -184,7 +182,7 @@ class LDRParser(Parser):
             return 0
 
     @_('PRINT statement')
-    def statement(self, p):
+    def statement(self, p):  # noqa ('statement' redefined function)
         logging.debug(f"PRINT statement ({p.statement})")
         self.lprint(p.statement)
 
@@ -209,9 +207,8 @@ class LDRFile:
 
         # for tok in lexer.tokenize(pre_parsed):
         #     print(f"type={tok.type}, value={tok.value}")
-        
-        return lexer.tokenize(pre_parsed)
 
+        return lexer.tokenize(pre_parsed)
 
     @logged
     def parse(self):
@@ -221,7 +218,7 @@ class LDRFile:
         logging.info(f"File read. {len(self.lines)} lines loaded.")
         logging.info("Adjusting tokens based on META TOKENS commands.")
         self._add_meta_tokens()
-        
+
         pre_parsed = self._pre_parse_lines()
         logging.info(f"Pre-parsing resulted in {len(pre_parsed)} lines of code")
         lexer = LDRLexer()
