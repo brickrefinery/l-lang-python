@@ -41,6 +41,15 @@ class Token:
                 v = f"{v}.dat"
             self.values.append(v)
 
+    def __iter__(self):
+        return self.values.__iter__()
+
+    def __next__(self):
+        return self.values.__next__()
+
+    def __getitem__(self, index):
+        return self.values.__getitem__(index)
+
     def remove(self, value: str):
         self.values.remove(value)
 
@@ -71,7 +80,7 @@ def load_tokens(token_file: str):
 
 
 class LDRLexer(Lexer):
-    tokens = { ID, PRINT, PRINTLOC, ASSIGN, NUMBER, STRING, BLOCK }  # noqa
+    tokens = { ID, PRINT, PRINTLOC, ASSIGN, PLUS, MINUS, STRING, BLOCK, NUMBER }  # noqa
 
     # Ignored characters between tokens (just whitespace for us)
     ignore = " \t"
@@ -86,6 +95,8 @@ class LDRLexer(Lexer):
     PRINTLOC = "x"
     ASSIGN = "x"
     ID = "x"
+    PLUS = "x"
+    MINUS = "x"
 
     @_(r"\d+")
     def NUMBER(self, t):  # noqa ('NUMBER' should be lowercase)
@@ -114,6 +125,12 @@ class LDRLexer(Lexer):
         LDRLexer.ASSIGN = tokens["tokens"]["assignment"].regex_list()
         LDRLexer._attributes['ASSIGN'] = LDRLexer.ASSIGN
 
+        LDRLexer.PLUS = tokens["tokens"]["add"].regex_list()
+        LDRLexer._attributes['PLUS'] = LDRLexer.PLUS
+
+        LDRLexer.MINUS = tokens["tokens"]["subtract"].regex_list()
+        LDRLexer._attributes['MINUS'] = LDRLexer.MINUS
+
         LDRLexer.ID = tokens["variables"]["ids"].regex_list()
         LDRLexer._attributes['ID'] = LDRLexer.ID
 
@@ -126,6 +143,7 @@ class LDRLexer(Lexer):
 
 class LDRParser(Parser):
     tokens = LDRLexer.tokens
+    # debugfile = 'parser.out'
 
     def __init__(self):
         self.names = {}
@@ -146,7 +164,7 @@ class LDRParser(Parser):
         print("0 STEP")
 
     def lprint(self,  msg):
-        for counter, c in enumerate(msg):
+        for counter, c in enumerate(str(msg)):
             self.lprint_pos(f"3005pt{c}.dat", 10 + 40 * counter, 0, 10 + -40 * self.print_line, 15)
         self.print_line += 1
 
@@ -159,13 +177,21 @@ class LDRParser(Parser):
         logging.debug(f"ID ({p.ID}) ASSIGN expr ({p.expr})")
         self.names[p.ID] = p.expr
 
+    @_('expr PLUS expr')
+    def expr(self, p):
+        return p.expr0 + p.expr1
+
+    @_('expr MINUS expr')
+    def expr(self, p):  # noqa ('expr' redefined function)
+        return p.expr0 - p.expr1
+
     @_('expr')
     def statement(self, p):  # noqa ('statement' redefined function)
         logging.debug(f"expr ({p.expr})")
         return p.expr
 
     @_('NUMBER')
-    def expr(self, p):
+    def expr(self, p):  # noqa ('expr' redefined function)
         return p.NUMBER
 
     @_('STRING')
@@ -275,10 +301,25 @@ class LDRFile:
         change = 0
         while change != len(result):
             change = len(result)
-            result = re.sub(r" (\d+) (\d+) ", r"'\1\2'", result)
+            result = re.sub(r"(\s)(\d+) (\d+)(\s)", r"\1\2\3\4", result)
 
         return result.split("\n")
 
     @logged
+    def _add_meta_token(self, line):
+        token = line.strip().split(" ")[-1]
+        original = token.split("=")[0]
+        if ".dat" not in original:
+            original = f"{original}.dat"
+        additions = token.split("=")[1].split(",")
+        for group in tokens:
+            for item in tokens[group]:
+                if original in tokens[group][item]:
+                    logging.info(f"Adding token ({str(additions)}) to token group {group}.{item}")
+                    tokens[group][item].append(additions)
+
+    @logged
     def _add_meta_tokens(self):
-        logging.warning("***Adding meta tokens not implemented.")
+        for line in self.lines:
+            if line.startswith("0 !LLANG TOKEN "):
+                self._add_meta_token(line)

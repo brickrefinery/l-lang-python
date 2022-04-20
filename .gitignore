@@ -3,6 +3,8 @@
 # tests are maintanied in the l-lang-spec repo, so excluded here
 tests
 
+# used for parser debugging, but doesn't need to be saved:
+parser.out
 
 
 # Byte-compiled / optimized / DLL files
